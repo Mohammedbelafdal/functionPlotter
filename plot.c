@@ -113,8 +113,7 @@ void Render(SDL_Renderer *screen, internalVariables *internalVariables) {
       fabs(internalVariables->x_end - internalVariables->x_start);
   double plotterHeight =
       fabs(internalVariables->y_end - internalVariables->y_start);
-  double virtualX; // x coordinate buffer
-  double virtualY; // y coordinate buffer
+  
 
   
 
@@ -138,13 +137,18 @@ void Render(SDL_Renderer *screen, internalVariables *internalVariables) {
   }
 
   //plot functions
-  SDL_SetRenderDrawColor(screen, 0, 0xFF, 0xFF, 200);
+  
   for (int x = 0; x < screenWidth; x++) {
-    virtualX=(((double)x/screenWidth)*plotterWidth+internalVariables->x_start);//x values on the plotter
-    virtualY=(double)sin(virtualX);
+    double virtualX=(((double)x/screenWidth)*plotterWidth+internalVariables->x_start);//x values on the plotter
     double projectedVirtualX=((virtualX-internalVariables->x_start)/plotterWidth)*screenWidth;//x values on screen
+    double virtualY=(double)sin(virtualX*internalVariables->animation/25)/virtualX;
+    double virtualY2=(double)fabs(virtualX)<internalVariables->animation/(double)25;
     double projectedVirtualY=(internalVariables->y_end-virtualY)/plotterHeight*screenHeight;
+    double projectedVirtualY2=(internalVariables->y_end-virtualY2)/plotterHeight*screenHeight;
+    SDL_SetRenderDrawColor(screen, 0, 0xFF, 0xFF, 200);
     SDL_RenderDrawLineF(screen,projectedVirtualX, internalVariables->y_end/plotterHeight*screenHeight ,projectedVirtualX, projectedVirtualY);
+    SDL_SetRenderDrawColor(screen, 0, 0xFF, 0, 200);
+    SDL_RenderDrawLineF(screen,projectedVirtualX, internalVariables->y_end/plotterHeight*screenHeight ,projectedVirtualX, projectedVirtualY2);
   }
   // render text
   char *textInfo = (char *)malloc(sizeof(char) * 100);
