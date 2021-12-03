@@ -17,15 +17,6 @@
 #define FPS 60
 #define defaultTextSize 20
 
-SDL_Rect textRect = {
-    .h = defaultTextSize, .w = defaultTextSize, .x = 10, .y = 10};
-SDL_Color defaultColor = {.r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xAA};
-SDL_Color white = {.r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xFF};
-SDL_Color black = {.r = 0, .g = 0, .b = 0, .a = 0xAA};
-SDL_Color red = {.r = 0xFF, .g = 0, .b = 0, .a = 0xAA};
-SDL_Color shade = {.r = 0, .g = 0, .b = 0, .a = 0x33};
-SDL_Color transparent = {.r = 0, .g = 0, .b = 0, .a = 0};
-
 struct internalVariables {
   double x_start;
   double y_start;
@@ -33,8 +24,24 @@ struct internalVariables {
   double y_end;
   int increasing;
   unsigned char animation; // value going from 0 to 100
+  int plotType;//changes plotting (outline,filled)
 
 } typedef internalVariables;
+
+int plot(SDL_Renderer *screen,double (*f)(double),SDL_Color color,internalVariables *internalVariables);
+
+SDL_Rect textRect = {
+    .h = defaultTextSize, .w = defaultTextSize, .x = 10, .y = 10};
+SDL_Color defaultColor = {.r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xAA};
+SDL_Color white = {.r = 0xAA, .g = 0xAA, .b = 0xAA, .a = 0xFF};
+SDL_Color black = {.r = 0, .g = 0, .b = 0, .a = 0xAA};
+SDL_Color red = {.r = 0xFF, .g = 0, .b = 0, .a = 0xAA};
+SDL_Color green = {.r = 0, .g = 0xFF, .b = 0, .a = 0xAA};
+SDL_Color blue = {.r = 0, .g = 0, .b = 0xFF, .a = 0xAA};
+SDL_Color shade = {.r = 0, .g = 0, .b = 0, .a = 0x33};
+SDL_Color transparent = {.r = 0, .g = 0, .b = 0, .a = 0};
+
+
 void eventHandler(SDL_Event *events, internalVariables *internalVariables) {
   while (SDL_PollEvent(events)) {
     switch (events->type) // checks wich type of event
@@ -67,6 +74,12 @@ void eventHandler(SDL_Event *events, internalVariables *internalVariables) {
   const Uint8 *state = SDL_GetKeyboardState(NULL);
   if (state[SDL_SCANCODE_ESCAPE]) {
     exit(1);
+  }
+  if(state[SDL_SCANCODE_E])
+  {
+    internalVariables->plotType++;
+    SDL_Delay(100);
+
   }
   if (state[SDL_SCANCODE_LEFT]) {
     internalVariables->x_start -= (double)1 / FPS;
@@ -113,10 +126,8 @@ void Render(SDL_Renderer *screen, internalVariables *internalVariables) {
       fabs(internalVariables->x_end - internalVariables->x_start);
   double plotterHeight =
       fabs(internalVariables->y_end - internalVariables->y_start);
-  
-
-  
-
+  double heightRatio=screenHeight/plotterHeight;
+  double widthRatio=screenWidth/plotterWidth;
   // plot
   SDL_SetRenderDrawColor(screen, 0xFF, 0xFF, 0xFF, 200);
 
@@ -137,19 +148,8 @@ void Render(SDL_Renderer *screen, internalVariables *internalVariables) {
   }
 
   //plot functions
-  
-  for (int x = 0; x < screenWidth; x++) {
-    double virtualX=(((double)x/screenWidth)*plotterWidth+internalVariables->x_start);//x values on the plotter
-    double projectedVirtualX=((virtualX-internalVariables->x_start)/plotterWidth)*screenWidth;//x values on screen
-    double virtualY=(double)sin(virtualX*internalVariables->animation/25)/virtualX;
-    double virtualY2=(double)fabs(virtualX)<internalVariables->animation/(double)25;
-    double projectedVirtualY=(internalVariables->y_end-virtualY)/plotterHeight*screenHeight;
-    double projectedVirtualY2=(internalVariables->y_end-virtualY2)/plotterHeight*screenHeight;
-    SDL_SetRenderDrawColor(screen, 0, 0xFF, 0xFF, 200);
-    SDL_RenderDrawLineF(screen,projectedVirtualX, internalVariables->y_end/plotterHeight*screenHeight ,projectedVirtualX, projectedVirtualY);
-    SDL_SetRenderDrawColor(screen, 0, 0xFF, 0, 200);
-    SDL_RenderDrawLineF(screen,projectedVirtualX, internalVariables->y_end/plotterHeight*screenHeight ,projectedVirtualX, projectedVirtualY2);
-  }
+  plot(screen,sinh,red,internalVariables);
+  plot(screen,exp,green,internalVariables);
   // render text
   char *textInfo = (char *)malloc(sizeof(char) * 100);
   SDL_Texture *textTexture;
@@ -180,7 +180,32 @@ void Render(SDL_Renderer *screen, internalVariables *internalVariables) {
   tempTextRect.y += defaultTextSize;
   SDL_RenderPresent(screen);
 }
+int plot(SDL_Renderer *screen,double (*f)(double),SDL_Color color,internalVariables *internalVariables)
+{
+  SDL_SetRenderDrawColor(screen, color.r, color.g, color.b, color.a);
+  int screenHeight;
+  int screenWidth;
+  SDL_GetRendererOutputSize(screen, &screenWidth, &screenHeight);
+  SDL_SetRenderDrawBlendMode(screen, SDL_BLENDMODE_BLEND);
+  double plotterWidth =
+      fabs(internalVariables->x_end - internalVariables->x_start);
+  double plotterHeight =
+      fabs(internalVariables->y_end - internalVariables->y_start);
+  double heightRatio=screenHeight/plotterHeight;
+  double widthRatio=screenWidth/plotterWidth;
+  for (int x = 0; x < screenWidth; x++) {
+    double virtualX=(((double)x/screenWidth)*plotterWidth+internalVariables->x_start);//x values on the plotter
+    double projectedVirtualX=(virtualX-internalVariables->x_start)*widthRatio;//x values on screen
+    double virtualY=(double)f(virtualX);
+    double projectedVirtualY=(internalVariables->y_end-virtualY)*heightRatio;
+    if(internalVariables->plotType&1)
+      SDL_RenderDrawLineF(screen,projectedVirtualX, internalVariables->y_end/plotterHeight*screenHeight ,projectedVirtualX, projectedVirtualY);
+    if(!(internalVariables->plotType&1))
+      SDL_RenderDrawPointF(screen,projectedVirtualX, projectedVirtualY);
 
+  }
+  return '\0';
+}
 int main(int argc, char *argv[])
 
 {
@@ -195,7 +220,8 @@ int main(int argc, char *argv[])
                                          .x_end = 10,
                                          .y_end = 7,
                                          .increasing = 1,
-                                         .animation = 1};
+                                         .animation = 1,
+                                         .plotType=1};
   SDL_GetDesktopDisplayMode(0, &DM);
   SDL_Window *win = SDL_CreateWindow("plotter", // creates a window
                                      SDL_WINDOWPOS_CENTERED,
